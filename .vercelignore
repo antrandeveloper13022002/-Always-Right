@@ -1,0 +1,3 @@
+# Self-checks run with Node; they are not part of the site.
+game/check.js
+game/check-story.js

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Kiểm Duyệt Viên</title>
+  <meta name="description" content="Ca đêm ở quầy kiểm duyệt: tìm lỗi ẩn trong câu trả lời của trợ lý AI trước khi nó đến tay người dân.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23111418'/><path d='M9 26V6m0 0h13l-3 5 3 5H9' fill='none' stroke='%23e5484d' stroke-width='3' stroke-linejoin='round'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Patrick+Hand&display=swap">
+  <link rel="stylesheet" href="style.css?v=39">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="badge" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M10 26V6m0 0h12l-3 5 3 5H10"/></svg></span>
+        <div class="brand-text">
+          <h1>Kiểm Duyệt Viên</h1>
+          <p>Quầy 07 · Tân Cảng 2041</p>
+        </div>
+      </div>
+      <dl class="console" id="hud" hidden>
+        <div class="gauge gauge-clock"><dt>Ca đêm</dt><dd id="hud-clock">22:00</dd></div>
+        <div class="gauge"><dt>Phiếu</dt><dd id="progress"></dd></div>
+        <div class="gauge">
+          <dt>Lượt tra sổ</dt>
+          <dd class="hud-lookups" id="hud-lookups"><span class="pips" id="lookup-pips" aria-hidden="true"></span><span id="lookups"></span></dd>
+        </div>
+        <div class="gauge"><dt>Hiệu suất</dt><dd id="score">0</dd></div>
+        <div class="gauge gauge-alert"><dt>Biên bản</dt><dd id="citations">0</dd></div>
+      </dl>
+      <button class="sound" id="btn-sound" type="button" aria-pressed="true" aria-label="Tắt nhạc" title="Tắt nhạc">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="sound-cone" d="M4 9v6h4l5 4V5L8 9H4z"/><path class="sound-on" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="sound-off" d="M16 9l6 6m0-6l-6 6"/></svg>
+      </button>
+    </header>
+
+    <section class="booth" id="stage" aria-label="Quầy kiểm duyệt">
+      <div class="booth-view" id="stage-view">
+        <canvas id="stage-canvas" aria-hidden="true"></canvas>
+      </div>
+      <div class="speech" id="speech" hidden>
+        <p class="speech-who"><span id="who-name"></span> <span class="speech-meta" id="who-meta"></span></p>
+        <p class="speech-text" id="ask" aria-live="polite"></p>
+        <p class="speech-note" id="speech-note" hidden></p>
+      </div>
+      <div class="rage-vignette" aria-hidden="true"></div>
+      <p class="intercom" id="intercom" role="status" hidden></p>
+    </section>
+
+    <main class="desk">
+      <!-- Start: the handover letter lying on the desk -->
+      <section class="screen letter-screen" id="screen-start">
+        <article class="letter">
+          <span class="clip" aria-hidden="true"></span>
+          <header class="letter-head">
+            <div>
+              <p class="letter-org">Thành phố Tân Cảng<br>Trung tâm Kiểm duyệt Thông tin</p>
+              <p class="letter-no">Số: 112/GC-KD07</p>
+            </div>
+            <p class="letter-date" id="memo-date">Tân Cảng, ngày 14 tháng 3 năm 2041</p>
+          </header>
+          <h2 id="memo-title">Giấy giao ca</h2>
+          <p class="letter-to">Kính gửi: Kiểm duyệt viên trực Quầy 07, ca đêm.</p>
+          <div class="letter-body">
+            <div class="memo-text" id="memo-text"></div>
+            <ol class="rules">
+              <li><b>Đọc kỹ từng câu.</b> Nhiều lỗi lộ ra ngay: tính sai, trả lời ngược với chính câu hỏi, hoặc điều vô lý.</li>
+              <li><b>Gạch câu sai</b> bằng bút đỏ (bấm vào câu). Gạch nhầm câu đúng cũng là vi phạm.</li>
+              <li><b>Tra Sổ tay Công vụ</b> khi không chắc. Mỗi ca chỉ có 5 dải đánh dấu. Chép điều khoản ra ghi chú và đính vào câu sai để được cộng hiệu suất.</li>
+              <li><b>Ký duyệt</b> khi phiếu đã sạch lỗi. Mỗi lỗi lọt ra ngoài, hay mỗi lần gạch nhầm, sẽ lập một biên bản.</li>
+              <li><b>Từ chối phục vụ</b> khi câu hỏi nhằm vi phạm pháp luật. Từ chối nhầm một câu hỏi chính đáng cũng là vi phạm.</li>
+            </ol>
+            <div class="memo-extra" id="memo-extra"></div>
+          <footer class="letter-foot">
+            <div class="memo-actions">
+              <button class="btn-ink" id="btn-start" type="button">Nhận ca</button>
+              <button class="btn-link" id="btn-restart" type="button" hidden>Chơi lại từ đầu</button>
+            </div>
+            <div class="letter-sign">
+              <p>Trưởng ca đêm</p>
+              <span class="seal" aria-hidden="true">TRUNG TÂM<br>KIỂM DUYỆT<br>TÂN CẢNG</span>
+              <p class="hand">Đoàn</p>
+              <p>Lê Văn Đoàn</p>
+            </div>
+          </footer>
+          </div>
+        </article>
+      </section>
+
+      <!-- Game: the printed reply form (left) and the reference book (right) -->
+      <section class="screen work" id="screen-game" hidden>
+        <article class="form" aria-labelledby="form-title">
+          <div class="form-scroll" id="sheet-body">
+            <header class="form-head">
+              <div>
+                <p class="form-org">Trung tâm Kiểm duyệt Thông tin Tân Cảng</p>
+                <h2 id="form-title">Phiếu phản hồi công dân</h2>
+              </div>
+              <dl class="form-ref">
+                <div><dt>Số</dt><dd id="form-no"></dd></div>
+                <div><dt>Giờ</dt><dd id="form-time"></dd></div>
+              </dl>
+            </header>
+            <dl class="form-fields">
+              <div><dt>Người hỏi</dt><dd id="form-who"></dd></div>
+              <div><dt>Nội dung hỏi</dt><dd id="form-ask"></dd></div>
+            </dl>
+            <p class="form-section" id="answer-head">Phần trả lời · do MIRA soạn tự động · chưa có giá trị khi chưa ký duyệt</p>
+            <div class="form-answer">
+              <ol class="lines" id="answer"></ol>
+              <div class="stamp" id="stamp" hidden></div>
+            </div>
+            <aside class="supervisor-note" id="verdict" hidden></aside>
+            <section class="notes" id="tray-box" aria-labelledby="tray-title">
+              <h3 id="tray-title">Ghi chú chép từ Sổ tay <span id="tray-count"></span></h3>
+              <p class="hint" id="tray-hint"></p>
+              <div class="note-list" id="tray"></div>
+            </section>
+          </div>
+          <footer class="form-foot">
+            <div class="sign">
+              <span>Người kiểm duyệt ký</span>
+              <span class="sign-line" id="sign"></span>
+            </div>
+            <p class="hint" id="foot-hint"></p>
+            <div class="foot-actions">
+              <button class="btn-refuse" id="btn-refuse" type="button">Từ chối phục vụ</button>
+              <button class="btn-ink" id="btn-send" type="button"></button>
+            </div>
+          </footer>
+        </article>
+
+        <section class="book" aria-labelledby="book-title">
+          <div class="ribbons" id="ribbons" aria-hidden="true"></div>
+          <button class="book-cover" id="book-cover" type="button" aria-expanded="false" aria-controls="book-spread">
+            <span class="cover-frame">
+              <span class="cover-emblem" aria-hidden="true"></span>
+              <span class="cover-title">Sổ tay<br>Công vụ</span>
+              <span class="cover-sub">Tân Cảng · 2040</span>
+              <span class="cover-hint">bấm để mở sổ</span>
+            </span>
+          </button>
+          <div class="book-spread" id="book-spread">
+            <button class="book-close" id="book-close" type="button" aria-label="Gập sổ tay lại">Gập sổ</button>
+            <div class="page page-left">
+              <p class="page-run">Sổ tay Công vụ Tân Cảng · Ấn bản 2040</p>
+              <h2 id="book-title">Mục lục</h2>
+              <label for="search" class="sr-only">Tra mục lục</label>
+              <input id="search" type="search" placeholder="Tra mục lục: cọc, metro, học phí…" autocomplete="off">
+              <div class="toc" id="entries"></div>
+            </div>
+            <div class="page page-right" id="entry" aria-live="polite"></div>
+          </div>
+        </section>
+      </section>
+
+      <!-- End of shift report -->
+      <section class="screen report-screen" id="screen-end" hidden></section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="coach" id="coach" role="dialog" aria-labelledby="coach-text" hidden>
+    <p class="coach-step" id="coach-step"></p>
+    <p class="coach-text" id="coach-text"></p>
+    <div class="coach-actions">
+      <button class="coach-skip" id="coach-skip" type="button">Bỏ hướng dẫn</button>
+      <button class="coach-next" id="coach-next" type="button">Tiếp</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    // three.js only ships its model loader as an ES module, so it is loaded
+    // here first; the game files stay classic scripts and load in order after.
+    // Offline (CDN unreachable) the game still runs, without the 3D booth.
+    const VERSION = 39;
+    try {
+      const THREE = await import('three');
+      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+      const SkeletonUtils = await import('three/addons/utils/SkeletonUtils.js');
+      window.THREE = THREE;
+      window.THREE_ADDONS = { GLTFLoader, SkeletonUtils };
+      // Post-processing is optional: without it the booth renders plain.
+      try {
+        const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { ShaderPass }] = await Promise.all([
+          import('three/addons/postprocessing/EffectComposer.js'),
+          import('three/addons/postprocessing/RenderPass.js'),
+          import('three/addons/postprocessing/UnrealBloomPass.js'),
+          import('three/addons/postprocessing/ShaderPass.js'),
+        ]);
+        Object.assign(window.THREE_ADDONS, { EffectComposer, RenderPass, UnrealBloomPass, ShaderPass });
+      } catch (error) {
+        console.warn('Post-processing unavailable:', error);
+      }
+    } catch (error) {
+      console.warn('3D unavailable:', error);
+    }
+    for (const file of ['audio.js', 'data.js', 'story.js', 'logic.js', 'scene3d.js', 'ui.js']) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `${file}?v=${VERSION}`;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.body.append(script);
+      });
+    }
+  </script>
+</body>
+</html>

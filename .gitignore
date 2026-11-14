@@ -1,0 +1,11 @@
+# Only the game is published. The art pipeline, docs, task list, local
+# server and Claude settings stay on this machine.
+/*
+!/game/
+!/vercel.json
+!/.vercelignore
+!/README.md
+!/.gitignore
+
+.env*
+!.env.example
