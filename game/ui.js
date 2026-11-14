@@ -43,6 +43,9 @@
   });
 
   let campaign = loadCampaign();
+  let nextShift = null;   // planned on the memo so its models load first
+  let memoToken = 0;
+  const allModels = [...D.cases, ...Object.values(S.cases)].map((c) => c.look && c.look.model).filter(Boolean);
   let shift = null;
   let serial = 0;
   let armedFact = null;   // note picked up by click, waiting for a sentence
@@ -716,15 +719,37 @@
       extra.push(clip);
     }
     $('memo-extra').replaceChildren(...extra);
-    $('btn-start').textContent = campaign.night === 0 ? 'Nhận ca' : `Nhận ca · ${night.title}`;
     $('btn-restart').hidden = campaign.night === 0;
     show('screen-start');
+    prepareNight(campaign.night === 0 ? 'Nhận ca' : `Nhận ca · ${night.title}`);
+  }
+
+  // Plans tonight's visitors and downloads their characters before the shift
+  // starts (the rest load afterwards). A slow network can start after 15 s.
+  function prepareNight(label) {
+    nextShift = L.newNight(S, D, campaign);
+    const names = nextShift.cases.map((c) => c.def.look && c.def.look.model).filter(Boolean);
+    const startBtn = $('btn-start');
+    const token = ++memoToken;
+    const finish = () => {
+      if (token !== memoToken || !startBtn.disabled) return;
+      startBtn.disabled = false;
+      startBtn.textContent = label;
+      Scene3D.preload(allModels);
+    };
+    startBtn.disabled = true;
+    startBtn.textContent = 'Đang tải nhân vật…';
+    Scene3D.preload(names, (done, total) => {
+      if (token === memoToken && startBtn.disabled) startBtn.textContent = `Đang tải nhân vật… ${done}/${total}`;
+    }).then(finish);
+    setTimeout(finish, 15000);
   }
 
   function startNight() {
     GameAudio.start();
     setBookOpen(false);
-    shift = L.newNight(S, D, campaign);
+    shift = nextShift || L.newNight(S, D, campaign);
+    nextShift = null;
     serial = 1000 + campaign.night * 400 + Math.floor(Math.random() * 300);
     openEntryId = null;
     $('search').value = '';
@@ -761,7 +786,6 @@
   const has3d = Scene3D.init($('stage-view'), $('stage-canvas'));
   $('stage').classList.toggle('is-3d', has3d);
   Scene3D.watchCustomer(placeSpeech);
-  Scene3D.preload([...D.cases, ...Object.values(S.cases)].map((c) => c.look && c.look.model).filter(Boolean));
   showMemo();
 
   $('btn-start').addEventListener('click', startNight);

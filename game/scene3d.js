@@ -359,9 +359,9 @@ const Scene3D = (() => {
   const FACES = {
     calm: { jaw: 0 },
     pleased: { jaw: 0.04, 'risorius03': [0.003, 0.004, 0], 'orbicularis04': [0, 0.0015, 0], 'oculi01': [0, 0.002, 0] },
-    shocked: { jaw: 0.22, 'oculi01': [0, 0.007, 0], 'orbicularis03': [0, 0.0025, 0] },
+    shocked: { jaw: 0.13, 'oculi01': [0, 0.007, 0], 'orbicularis03': [0, 0.0025, 0] },
     annoyed: { jaw: 0, 'oculi01': [0, -0.004, 0], 'oris07': [0, -0.002, 0], 'risorius03': [0, -0.002, 0] },
-    angry: { jaw: 0.08, 'oculi01': [-0.005, -0.008, 0.005], 'orbicularis03': [0, -0.0008, 0], 'orbicularis04': [0, 0.0012, 0], 'risorius03': [0.004, -0.007, 0], 'oris07': [0, -0.006, 0], 'levator06': [0.001, 0.005, 0.002] },
+    angry: { jaw: 0.05, 'oculi01': [-0.005, -0.008, 0.005], 'orbicularis03': [0, -0.0008, 0], 'orbicularis04': [0, 0.0012, 0], 'risorius03': [0.004, -0.007, 0], 'oris07': [0, -0.006, 0], 'levator06': [0.001, 0.005, 0.002] },
   };
   const FACE_BONES = ['oculi01', 'orbicularis03', 'orbicularis04', 'risorius03', 'oris07', 'levator06'];
   const AXIS_X = T ? new T.Vector3(1, 0, 0) : null;
@@ -460,6 +460,7 @@ const Scene3D = (() => {
       arms: [new T.Object3D(), new T.Object3D()],
       legs: [new T.Object3D(), new T.Object3D()],
       hands: [bones.wristR, bones.wristL],
+      grip: bones['finger3-1L'] || bones.wristL,   // where the phone sits when filming
       armLen: bones.upperarm01L.getWorldPosition(new T.Vector3()).distanceTo(bones.wristL.getWorldPosition(new T.Vector3())),
       anchor: bones.head,
       eyes: [], flush: [], eyeOpen: 1,
@@ -736,7 +737,8 @@ const Scene3D = (() => {
     // The jaw works open and shut while shouting.
     const isTalking = !isShouting && elapsed < person.talkUntil;
     const talk = isTalking ? 0.07 * Math.abs(Math.sin(elapsed * 11) * Math.sin(elapsed * 3.7 + 1)) : 0;
-    const jawGoal = goal.jaw + talk + (isShouting ? 0.24 * Math.abs(Math.sin(elapsed * 9)) : 0);
+    // Past ~0.17 rad the lower teeth move further than the lip skin and poke out.
+    const jawGoal = Math.min(0.17, goal.jaw + talk + (isShouting ? 0.12 * Math.abs(Math.sin(elapsed * 9)) : 0));
     rig.jawNow += (jawGoal - rig.jawNow) * Math.min(1, dt * 14);
     if (rig.jaw) turnBone(rig.jaw, qTmp.setFromAxisAngle(AXIS_X, rig.jawNow));
     rig.blinkAt -= dt;
@@ -976,13 +978,16 @@ const Scene3D = (() => {
     film(person) {
       const arm = person.arms[1];
       const phone = group();
-      mesh(box(0.065, 0.12, 0.01), std('#141518', 0.3, 0.6), { parent: phone });
-      const rec = glow(0xff2a2a, 0.06, [0.02, 0.045, 0.012], phone, 0);
+      mesh(box(0.065, 0.13, 0.009), std('#2c3036', 0.28, 0.65), { parent: phone });
+      mesh(cyl(0.008, 0.008, 0.004, 16), std('#08090b', 0.08, 0.4), { at: [-0.016, 0.043, 0.006], rot: [Math.PI / 2, 0, 0], parent: phone });
+      const rec = glow(0xff2a2a, 0.028, [0.02, 0.05, 0.008], phone, 0);
       const flash = glow(0xffffff, 0.16, [-0.02, 0.045, 0.012], phone, 0);
       tween('act', 2.6, (k) => {
-        person.hands[1].getWorldPosition(phone.position);
-        phone.position.y += 0.06;
-        phone.position.z += 0.03;
+        // In the fingers, nudged towards the clerk: the hand holds it from behind.
+        (person.grip || person.hands[1]).getWorldPosition(phone.position);
+        vTmp.copy(camera.position).sub(phone.position).normalize().multiplyScalar(0.028);
+        phone.position.add(vTmp);
+        phone.position.y += 0.015;
         phone.lookAt(camera.position);
         arm.rotation.x = -Math.min(1.35, reach(person)) * smooth(0, 0.15, k);
         person.head.rotation.x = -0.08 * smooth(0, 0.15, k);
@@ -1857,6 +1862,7 @@ const Scene3D = (() => {
 
   // Empty booth, clock back to 22:00 (start of a shift or the title screen).
   function reset() {
+    enterToken += 1;
     if (!isReady) return;
     if (customer) {
       removePerson(customer);
@@ -1868,11 +1874,23 @@ const Scene3D = (() => {
     calmDown();
   }
 
+  let enterToken = 0;
   function enterCustomer(look) {
     if (!isReady) return;
     focusGoal = 0;
     leaveCustomer();
+    const token = ++enterToken;
     if (!look) return;   // e.g. the supervisor on the radio: nobody at the window
+    if (look.model && !models.has(look.model) && ADDONS.GLTFLoader) {
+      // Still downloading: wait for it (up to 10 s) instead of showing a stand-in.
+      Promise.race([loadModel(look.model).catch(() => {}), new Promise((done) => { setTimeout(done, 10000); })])
+        .then(() => { if (token === enterToken) arrive(look); });
+      return;
+    }
+    arrive(look);
+  }
+
+  function arrive(look) {
     customer = buildPerson(look);
     walk(customer, SPOT_X, 1.6);
     talkFrom = elapsed + 1.4;
@@ -1969,7 +1987,16 @@ const Scene3D = (() => {
   const focusLevel = () => focus;
 
   // Start downloading character models; people use them once they arrive.
-  const preload = (names) => { for (const name of names) loadModel(name).catch(() => {}); };
+  // Downloads models; onProgress(done, total) after each. Resolves when all
+  // have finished or failed (a failed one falls back to the simple figure).
+  function preload(names, onProgress) {
+    const unique = [...new Set(names)];
+    let done = 0;
+    return Promise.all(unique.map((name) => loadModel(name).catch(() => {}).then(() => {
+      done += 1;
+      if (onProgress) onProgress(done, unique.length);
+    })));
+  }
 
   // The customer speaks for about this long (mouth moves, hands gesture).
   function talk(seconds) {

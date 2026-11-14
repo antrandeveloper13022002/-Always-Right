@@ -184,7 +184,7 @@
     // three.js only ships its model loader as an ES module, so it is loaded
     // here first; the game files stay classic scripts and load in order after.
     // Offline (CDN unreachable) the game still runs, without the 3D booth.
-    const VERSION = 39;
+    const VERSION = 42;
     try {
       const THREE = await import('three');
       const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
